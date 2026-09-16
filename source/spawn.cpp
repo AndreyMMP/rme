@@ -31,7 +31,18 @@ Spawn* Spawn::deepCopy() const
 {
 	Spawn* copy = new Spawn(size);
 	copy->selected = selected;
+	copy->monsterPools = monsterPools;
 	return copy;
+}
+
+bool Spawn::hasMonsterPoolAt(int32_t offsetX, int32_t offsetY) const
+{
+	for(const SpawnMonsterPool& pool : monsterPools) {
+		if(pool.offsetX == offsetX && pool.offsetY == offsetY) {
+			return true;
+		}
+	}
+	return false;
 }
 
 void Spawns::addSpawn(Tile* tile)

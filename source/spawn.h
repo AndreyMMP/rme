@@ -18,7 +18,23 @@
 #ifndef RME_SPAWN_H_
 #define RME_SPAWN_H_
 
+#include <string>
+#include <vector>
+
 class Tile;
+
+struct SpawnMonsterEntry {
+	std::string name;
+	uint16_t chance;
+};
+
+struct SpawnMonsterPool {
+	int32_t offsetX;
+	int32_t offsetY;
+	uint16_t z;
+	int32_t spawntime;
+	std::vector<SpawnMonsterEntry> monsters;
+};
 
 class Spawn
 {
@@ -37,6 +53,10 @@ public:
 		size = newsize;
 	}
 
+	const std::vector<SpawnMonsterPool>& getMonsterPools() const noexcept { return monsterPools; }
+	void addMonsterPool(const SpawnMonsterPool& pool) { monsterPools.push_back(pool); }
+	bool hasMonsterPoolAt(int32_t offsetX, int32_t offsetY) const;
+
 	// Does not compare selection!
 	bool operator==(const Spawn& other) { return size == other.size; }
 	bool operator!=(const Spawn& other) { return size != other.size; }
@@ -44,6 +64,7 @@ public:
 protected:
 	int size;
 	bool selected;
+	std::vector<SpawnMonsterPool> monsterPools;
 };
 
 typedef std::set<Position> SpawnPositionList;

@@ -986,6 +986,46 @@ bool IOMapOTBM::loadSpawns(Map& map, pugi::xml_document& doc)
 
 		for(pugi::xml_node creatureNode = spawnNode.first_child(); creatureNode; creatureNode = creatureNode.next_sibling()) {
 			const std::string& creatureNodeName = as_lower_str(creatureNode.name());
+			if(creatureNodeName == "monsters") {
+				SpawnMonsterPool pool;
+				pool.offsetX = creatureNode.attribute("x").as_int();
+				pool.offsetY = creatureNode.attribute("y").as_int();
+				pool.z = creatureNode.attribute("z").as_uint(spawnPosition.z);
+				pool.spawntime = creatureNode.attribute("spawntime").as_int();
+				if(pool.spawntime == 0) {
+					pool.spawntime = g_settings.getInteger(Config::DEFAULT_SPAWNTIME);
+				}
+
+				for(pugi::xml_node monsterNode : creatureNode.children()) {
+					if(as_lower_str(monsterNode.name()) != "monster") {
+						continue;
+					}
+
+					const std::string& monsterName = monsterNode.attribute("name").as_string();
+					if(monsterName.empty()) {
+						continue;
+					}
+
+					SpawnMonsterEntry entry;
+					entry.name = monsterName;
+					entry.chance = monsterNode.attribute("chance").as_uint();
+					pool.monsters.push_back(entry);
+
+					if(!g_creatures[monsterName]) {
+						g_creatures.addMissingCreatureType(monsterName, false);
+					}
+				}
+
+				if(!pool.monsters.empty()) {
+					spawn->addMonsterPool(pool);
+					radius = std::max<int32_t>(radius, std::abs(pool.offsetX));
+					radius = std::max<int32_t>(radius, std::abs(pool.offsetY));
+					radius = std::min<int32_t>(radius, g_settings.getInteger(Config::MAX_SPAWN_RADIUS));
+					spawn->setSize(radius);
+				}
+				continue;
+			}
+
 			if(creatureNodeName != "monster" && creatureNodeName != "npc") {
 				continue;
 			}
@@ -1470,8 +1510,26 @@ bool IOMapOTBM::saveSpawns(Map& map, pugi::xml_document& doc)
 		int32_t radius = spawn->getSize();
 		spawnNode.append_attribute("radius") = radius;
 
+		for(const SpawnMonsterPool& pool : spawn->getMonsterPools()) {
+			pugi::xml_node poolNode = spawnNode.append_child("monsters");
+			poolNode.append_attribute("x") = pool.offsetX;
+			poolNode.append_attribute("y") = pool.offsetY;
+			poolNode.append_attribute("z") = pool.z;
+			poolNode.append_attribute("spawntime") = pool.spawntime;
+
+			for(const SpawnMonsterEntry& entry : pool.monsters) {
+				pugi::xml_node monsterNode = poolNode.append_child("monster");
+				monsterNode.append_attribute("name") = entry.name.c_str();
+				monsterNode.append_attribute("chance") = entry.chance;
+			}
+		}
+
 		for(int32_t y = -radius; y <= radius; ++y) {
 			for(int32_t x = -radius; x <= radius; ++x) {
+				if(spawn->hasMonsterPoolAt(x, y)) {
+					continue;
+				}
+
 				Tile* creature_tile = map.getTile(spawnPosition + Position(x, y, 0));
 				if(creature_tile) {
 					Creature* creature = creature_tile->creature;
